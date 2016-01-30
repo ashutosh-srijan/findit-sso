@@ -13,6 +13,7 @@ function CustomDynamoDbConnection() {
     'region' => 'region',
     'version' => 'latest'
   ]);
+
   return $sdk;
 }
 
@@ -109,7 +110,8 @@ Class FinditDynamoDbUser {
    * Create and save user account to dynamodb.
    */
   public function createUserProfile($data) {
-    $time = time();
+    $time = (string) time();
+    $registeredFrom = 'Findit';
     $salt = $this->generateSalt($data['email']);
     $hashpassword = hash_pbkdf2("sha256", $data['password'], $salt, 4096, 128);
     $other_data = $this->otherUserData($data);
@@ -119,11 +121,13 @@ Class FinditDynamoDbUser {
         'id' => array('S' => base64_encode($data['email'])),
         'name' => array('S' => $data['name']),
         'password' => array('S' => $hashpassword),
+        'passwordsalt' => array('S' => $salt),
         'email' => array('S' => $data['email']),
-        //'created' => array('S' => $time),
-        //'updated' => array('S' => $time),
-        //'status' => array('S' => 1),
-        'data' => array('S' => $other_data)
+        'created' => array('S' => $time),
+        'updated' => array('S' => $time),
+        'status' => array('S' => 1),
+        'data' => array('S' => $other_data),
+        'registeredfrom' => array('S' => $registeredFrom)
       )
     ));
     if ($result['@metadata']['statusCode'] == 200) {
@@ -133,15 +137,17 @@ Class FinditDynamoDbUser {
   }
 
   public function updateUserProfile($id, $token) {
+    $time = (string) time();
     $result = $this->sdk->updateItem(array(
       'TableName' => TABLE,
       'Key' => [
         'id' => ['S' => $id]
       ],
       'ExpressionAttributeValues' => [
-        ':token' => ['S' => $token]
+        ':token' => ['S' => $token],
+        ':time' => ['S' => $time]
       ],
-      'UpdateExpression' => 'set authtoken = :token',
+      'UpdateExpression' => 'set authtoken = :token, updated = :time',
       'ReturnValues' => 'ALL_NEW'
     ));
     if ($result['@metadata']['statusCode'] == 200) {
