@@ -1,8 +1,8 @@
 <?php
 
 if (PHP_SAPI == 'cli-server') {
-  // To help the built-in PHP dev server, check if the request was actually for
-  // something which should probably be served as a static file
+// To help the built-in PHP dev server, check if the request was actually for
+// something which should probably be served as a static file
   $file = __DIR__ . $_SERVER['REQUEST_URI'];
   if (is_file($file)) {
     return false;
@@ -31,6 +31,13 @@ $app->post('/user/register', function($data) {
   return $result;
 });
 
+//Get user data based on id.
+$app->get('/user/identity', function($request, $response, $id) {
+  $headers = $request->getHeaders();
+  $userinfo = user_identity($id, $headers);
+  return $userinfo;
+});
+
 //User login api.
 $app->post('/user/login', function($request) {
   $headers = $request->getHeaders();
@@ -39,11 +46,18 @@ $app->post('/user/login', function($request) {
   return $result;
 });
 
-//Get user data based on id.
-$app->get('/user/identity', function($request, $response, $id) {
-  $headers = $request->getHeaders();
-  $userinfo = user_identity($id, $headers);
-  return $userinfo;
+//Forgot pasword api
+$app->post('/user/forgot/password', function($request) {
+  $data = $request->getParsedBody();
+  $result = updateUserPassword($data);
+  return json_encode($result);
+});
+
+//User Reset Password
+$app->post('/user/reset/password', function($request) {
+  $data = $request->getParsedBody();
+  $result = updateResetPassword($data);
+  return json_encode($result);
 });
 
 $app->run();

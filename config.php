@@ -94,13 +94,62 @@ Class FinditDynamoDbUser {
 
   /**
    * 
-   * @param type $mail
+   * @param type $password
+   * @param type $unique_salt
    * @return type
-   * Generate unique salt for each user.
+   * Generate password hash.
    */
-  public function generateSalt($mail) {
-    $code = md5(base64_encode($mail));
-    return $code;
+  public function hash($password, $unique_salt) {
+    return crypt($password, '$5$' . $unique_salt);
+  }
+
+  /**
+   * 
+   * @return type
+   * Unique salt for password.
+   */
+  public function unique_salt() {
+    return substr(sha1(mt_rand()), 0, 22);
+  }
+
+  /**
+   * Password reset token.
+   */
+  public function generatePasswordToken($data) {
+    $time = time();
+    $id = $data['id']['S'];
+    $token = base64_encode($time . '/' . $id . '/' . hash_hmac('sha256', rand(10, 100), TRUE));
+    return $token;
+  }
+
+  /**
+   * Password validate token.
+   */
+  public function validatePasswordToken($token) {
+    $response = array();
+    $tokeninfo = base64_decode($token);
+    $current = time();
+    $timeout = 84000;
+    if (isset($tokeninfo)) {
+      $tokenarray = explode('/', $tokeninfo);
+      $timestamp = $tokenarray[0];
+      if ($timestamp <= $current) {
+        if ($current - $timestamp > $timeout) {
+          $response['error'] = 1;
+          $response['message'] = 'You have tried to use a one-time login link that has expired.';
+        }
+        else {
+          $response['error'] = 0;
+          $response['message'] = '';
+          $response['id'] = $tokenarray[1];
+        }
+      }
+      else {
+        $response['error'] = 1;
+        $response['message'] = 'You have tried to use a one-time login link that has expired.';
+      }
+    }
+    return $response;
   }
 
   /**
@@ -110,10 +159,10 @@ Class FinditDynamoDbUser {
    * Create and save user account to dynamodb.
    */
   public function createUserProfile($data) {
+    $salt = $this->unique_salt();
+    $hashpassword = $this->hash($data['password'], $unique_salt);
     $time = (string) time();
     $registeredFrom = 'Findit';
-    $salt = $this->generateSalt($data['email']);
-    $hashpassword = hash_pbkdf2("sha256", $data['password'], $salt, 4096, 128);
     $other_data = $this->otherUserData($data);
     $result = $this->sdk->putItem(array(
       'TableName' => TABLE,
@@ -125,7 +174,7 @@ Class FinditDynamoDbUser {
         'email' => array('S' => $data['email']),
         'created' => array('S' => $time),
         'updated' => array('S' => $time),
-        'status' => array('S' => 1),
+        'status' => array('BOOL' => TRUE),
         'data' => array('S' => $other_data),
         'registeredfrom' => array('S' => $registeredFrom)
       )
@@ -136,6 +185,13 @@ Class FinditDynamoDbUser {
     }
   }
 
+  /**
+   * 
+   * @param type $id
+   * @param type $token
+   * @return type
+   * Update user profile information.
+   */
   public function updateUserProfile($id, $token) {
     $time = (string) time();
     $result = $this->sdk->updateItem(array(
@@ -155,6 +211,39 @@ Class FinditDynamoDbUser {
     }
   }
 
+  /**
+   * 
+   * @param type $id
+   * @param type $password
+   * @return type
+   * Update user password.
+   */
+  public function updateUserPassword($id, $password) {
+    $salt = $this->unique_salt();
+    $hashpassword = $this->hash($password, $salt);
+    $result = $this->sdk->updateItem(array(
+      'TableName' => TABLE,
+      'Key' => [
+        'id' => ['S' => $id]
+      ],
+      'ExpressionAttributeValues' => [
+        ':password' => ['S' => $hashpassword],
+        ':salt' => ['S' => $salt]
+      ],
+      'UpdateExpression' => 'set password = :password, passwordsalt = :salt',
+      'ReturnValues' => 'ALL_NEW'
+    ));
+    if ($result['@metadata']['statusCode'] == 200) {
+      return $result['Attributes'];
+    }
+  }
+
+  /**
+   * 
+   * @param type $data
+   * @return type
+   * Get Addtional User data.
+   */
   public function otherUserData($data) {
     unset($data['email']);
     unset($data['password']);
@@ -170,39 +259,25 @@ Class FinditDynamoDbUser {
    * Validate user account.
    */
   public function validateuseraccount($mail, $password) {
-    $error = array();
-    $salt = $this->generateSalt($mail);
-    $hashpassword = hash_pbkdf2("sha256", $password, $salt, 4096, 128);
-    $result = $this->sdk->scan(array(
-      'TableName' => 'Users',
-      'ScanFilter' => array(
-        'email' => array(
-          'AttributeValueList' => array(
-            array('S' => $mail)
-          ),
-          'ComparisonOperator' => 'EQ'
-        ),
-        'password' => array(
-          'AttributeValueList' => array(
-            array('S' => $hashpassword)
-          ),
-          'ComparisonOperator' => 'EQ'
-        )
-      )
-    ));
-    if ($result['Count']) {
-      $result['Items'][0]['status'] = 1;
-      return $result['Items'][0];
+    $user = $this->getUserRecordByMail($mail);
+    $currenthash = $user['password']['S'];
+    $salt = substr($currenthash, 0, 25);
+    $entered = $this->hash($password, $salt);
+    $new_hash = crypt($password, $salt);
+    if ($currenthash == $new_hash) {
+      $user['status'] = 0;
+      return $user;
     }
     else {
       $result = array();
-      $result['status'] = 0;
+      $result['status'] = 1;
+      $result['message'] = "Invalid Password";
       return $result;
     }
   }
 
   public function createJwtToken($data, $headers) {
-    $tokenId = base64_encode(mcrypt_create_iv(32));
+    $tokenId = base64_encode(mcrypt_create_iv(32, MCRYPT_DEV_URANDOM));
     $issuedAt = time();
     $notBefore = $issuedAt + 100;             //Adding 10 seconds
     $expire = $notBefore + 500;            // Adding 60 seconds
@@ -221,7 +296,7 @@ Class FinditDynamoDbUser {
         'userId' => $data['id']['S'], // userid from the users table
         'email' => $data['email']['S'],
         'name' => $data['name']['S'],
-        'userIdentifier' => !empty($headers['HTTP_DEVICEID']) ? base64_encode($headers['HTTP_DEVICEID'][0]) : base64_encode($headers['Host'])
+        'userIdentifier' => !empty($headers['HTTP_DEVICEID']) ? base64_encode($headers['HTTP_DEVICEID'][0]) : base64_encode($headers['Host'][0])
       ]
     ];
 

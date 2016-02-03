@@ -95,7 +95,7 @@ function loginuser($data, $headers) {
     return json_encode($response);
   }
   $user = $dd->validateuseraccount($mail, $password);
-  if (!empty($user)) {
+  if (!$user['status']) {
     $token = $dd->createJwtToken($user, $headers);
     if (isset($token)) {
       $profile = $dd->updateUserProfile($user['id']['S'], $token);
@@ -111,13 +111,67 @@ function loginuser($data, $headers) {
     $output = FALSE;
     $response['error'] = 1;
     $response['system_msg'] = '';
-    $response['dispaly_msg'] = 'Something went wrong please try agian.';
+    $response['dispaly_msg'] = $user['message'];
     return json_encode($response);
+  }
+}
+
+function updateUserPassword($data) {
+  $url = 'https://login.finditlabs.com/newPassword.php';
+  $response = array();
+  $response['error'] = 1;
+  if (empty($data) || !array_key_exists('loginID', $data) || !array_key_exists('redirectkey', $data)) {
+    $response['message'] = 'Invalid Request';
+    return $response;
+  }
+
+  if (filter_var($data['loginID'], FILTER_VALIDATE_EMAIL) === false) {
+    $response['message'] = 'Invalid Email Id';
+    return $response;
+  }
+
+  $dynamo = new FinditDynamoDbUser();
+  $user = $dynamo->getUserRecordByMail($data['loginID']);
+  if (empty($user)) {
+    $response['message'] = 'User not exist';
+    return $response;
+  }
+  $resetPasswordToken = $dynamo->generatePasswordToken($user);
+  $response['error'] = 0;
+  $response['message'] = 'Password reset details send to your email address';
+  $url .= '?code=' . $resetPasswordToken;
+  mail('ashutoshsngh67@gmail.com', 'Password update link', $url);
+  return $response;
+}
+
+function updateResetPassword($data) {
+  $response = array();
+  if (empty($data)) {
+    $response['message'] = 'Invalid Request';
+    return $response;
+  }
+
+  if (array_key_exists('code', $data)) {
+    $dynamo = new FinditDynamoDbUser();
+    $validationresponse = $dynamo->validatePasswordToken($data['code']);
+    if (!$validationresponse['error']) {
+      $id = $validationresponse['id'];
+      $newpassword = $data['password'];
+      $pp = $dynamo->updateUserPassword($id, $newpassword);
+      return $pp;
+    }
+    else {
+      return $validationresponse;
+    }
   }
 }
 
 function user_identity($id, $headers) {
   $dd = new FinditDynamoDbUser();
+  $id = 'ZmluZHVzZXIxMEBnbWFpbC5jb20=';
+  $data = $dd->getUserRecordById($id);
+  return json_encode($data);
+
   $validate = $dd->validateJwtToken($headers);
   $data = array();
   if (!empty($validate)) {
