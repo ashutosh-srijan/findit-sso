@@ -168,10 +168,6 @@ function updateResetPassword($data) {
 
 function user_identity($id, $headers) {
   $dd = new FinditDynamoDbUser();
-  $id = 'ZmluZHVzZXIxMEBnbWFpbC5jb20=';
-  $data = $dd->getUserRecordById($id);
-  return json_encode($data);
-
   $validate = $dd->validateJwtToken($headers);
   $data = array();
   if (!empty($validate)) {

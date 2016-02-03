@@ -311,13 +311,6 @@ Class FinditDynamoDbUser {
     $output = FALSE;
     $token_data = \Firebase\JWT\JWT::decode($authcode, 'findsso', array('HS512'));
     return $token_data->data;
-//    $verifier = $token_data->data->userAgent;
-//    $identifier = $token_data->data->userId;
-//    $receivedToken = base64_encode($data['Host'][0]);
-//    if ($verifier == $receivedToken) {
-//      $output = $identifier;
-//    }
-//    return $output;
   }
 
 }
