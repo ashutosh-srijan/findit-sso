@@ -7,10 +7,10 @@ define('TABLE', 'Users');
 function CustomDynamoDbConnection() {
   $sdk = new \Aws\DynamoDb\DynamoDbClient([
     'credentials' => array(
-      'key' => 'AKIAI5FPXTJJEXEF56VA',
-      'secret' => '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'
+      'key' => 'key',
+      'secret' => 'secret'
     ),
-    'region' => 'ap-southeast-1',
+    'region' => 'region',
     'version' => 'latest'
   ]);
 
