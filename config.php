@@ -7,10 +7,10 @@ define('TABLE', 'Users');
 function CustomDynamoDbConnection() {
   $sdk = new \Aws\DynamoDb\DynamoDbClient([
     'credentials' => array(
-      'key' => 'key',
-      'secret' => 'secret'
+      'key' => 'AKIAI5FPXTJJEXEF56VA',
+      'secret' => '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'
     ),
-    'region' => 'region',
+    'region' => 'ap-southeast-1',
     'version' => 'latest'
   ]);
 
@@ -311,6 +311,34 @@ Class FinditDynamoDbUser {
     $output = FALSE;
     $token_data = \Firebase\JWT\JWT::decode($authcode, 'findsso', array('HS512'));
     return $token_data->data;
+  }
+
+  public function curlRequest($url, $method = 'POST', $data) {
+    $method = ($method == 'POST') ? 1 : 0;
+    $formatdata = $this->transformUserData($data);
+    // Get cURL resource
+    $curl = curl_init();
+// Set some options - we are passing in a useragent too here
+    curl_setopt_array($curl, array(
+      CURLOPT_RETURNTRANSFER => 1,
+      CURLOPT_URL => $url,
+      CURLOPT_USERAGENT => 'Codular Sample cURL Request',
+      CURLOPT_POST => $method,
+      CURLOPT_POSTFIELDS => $formatdata
+    ));
+// Send the request & save response to $resp
+    $resp = curl_exec($curl);
+// Close request to clear up some resources
+    curl_close($curl);
+  }
+
+  public function transformUserData($data) {
+    $response = array();
+    foreach ($data as $key => $value) {
+      $fieldKey = key($value);
+      $response[$key] = $data[$key][$fieldKey];
+    }
+    return $response;
   }
 
 }

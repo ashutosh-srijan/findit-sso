@@ -24,6 +24,8 @@ function createuseraccount($requestdata, $headers) {
     $dd = new FinditDynamoDbUser();
     $result = $dd->createUserProfile($requestdata);
     if (!empty($result)) {
+      $url = 'http://localhost/findit/api_market/register';
+      $response = $dd->curlRequest($url, 'POST', $result);
       $token = $dd->createJwtToken($result, $headers);
       if (isset($token)) {
         $profile = $dd->updateUserProfile($result['id']['S'], $token);
