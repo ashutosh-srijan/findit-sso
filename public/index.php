@@ -24,11 +24,12 @@ $app->get('/', function() use ($app) {
 });
 
 //User register api.
-$app->post('/user/register', function($data) {
-  $headers = $data->getHeaders();
-  $requestdata = $data->getParsedBody();
+$app->post('/user/register', function($request, $response) {
+  $headers = $request->getHeaders();
+  $requestdata = $request->getParsedBody();
   $result = createuseraccount($requestdata, $headers);
-  return $result;
+  $response->write($result);
+  return $response->withHeader('Content-type', 'application/json');
 });
 
 //Get user data based on id.
@@ -39,25 +40,28 @@ $app->get('/user/identity', function($request, $response, $id) {
 });
 
 //User login api.
-$app->post('/user/login', function($request) {
+$app->post('/user/login', function($request, $response) {
   $headers = $request->getHeaders();
   $requestdata = $request->getParsedBody();
   $result = loginuser($requestdata, $headers);
-  return $result;
+  $response->write($result);
+  return $response->withHeader('Content-type', 'application/json');
 });
 
 //Forgot pasword api
-$app->post('/user/forgot/password', function($request) {
+$app->post('/user/forgot/password', function($request, $response) {
   $data = $request->getParsedBody();
   $result = updateUserPassword($data);
-  return json_encode($result);
+  $response->write(json_encode($result));
+  return $response->withHeader('Content-type', 'application/json');
 });
 
 //User Reset Password
-$app->post('/user/reset/password', function($request) {
+$app->post('/user/reset/password', function($request, $response) {
   $data = $request->getParsedBody();
   $result = updateResetPassword($data);
-  return json_encode($result);
+  $response->write(json_encode($result));
+  return $response->withHeader('Content-type', 'application/json');
 });
 
 $app->run();

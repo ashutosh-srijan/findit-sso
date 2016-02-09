@@ -8,24 +8,32 @@
 function createuseraccount($requestdata, $headers) {
   $response = array();
   if (empty($requestdata)) {
-    exit('Invalid Request.');
+    $response['error'] = 1;
+    $response['system_msg'] = '';
+    $response['dispaly_msg'] = 'Invalid Request.';
+    return json_encode($response);
   }
 
-  if (!isset($requestdata['email'])) {
-    exit('Email id is required.');
+  if (empty($requestdata['email'])) {
+    $response['error'] = 1;
+    $response['system_msg'] = '';
+    $response['dispaly_msg'] = 'Email id is required.';
+    return json_encode($response);
   }
 
-  if (!isset($requestdata['password'])) {
-    exit('Password is required.');
+  if (empty($requestdata['password'])) {
+    $response['error'] = 1;
+    $response['system_msg'] = '';
+    $response['dispaly_msg'] = 'Password is required.';
+    return json_encode($response);
   }
 
   $validate = validateemail($requestdata['email']);
   if ($validate == 1) {
     $dd = new FinditDynamoDbUser();
     $result = $dd->createUserProfile($requestdata);
+    createUserOnApp($result);
     if (!empty($result)) {
-      $url = 'http://localhost/findit/api_market/register';
-      $response = $dd->curlRequest($url, 'POST', $result);
       $token = $dd->createJwtToken($result, $headers);
       if (isset($token)) {
         $profile = $dd->updateUserProfile($result['id']['S'], $token);
@@ -180,4 +188,17 @@ function user_identity($id, $headers) {
 //    $data['id'] = $response['id']['S'];
 //    return base64_encode(serialize($data));
   }
+}
+
+function createUserOnApp($data) {
+  $dd = new FinditDynamoDbUser();
+  //Create user on marketplace.
+  $url = 'http://localhost/findit/api_market/register';
+  $response = $dd->curlRequest($url, 'POST', $data);
+
+  //Create user on merchant.
+  //$url = 'http://localhost/findit-merchant/api_market/register';
+  //$response = $dd->curlRequest($url, 'POST', $data);
+  //Create user on cakephp.
+  //@ToDO
 }

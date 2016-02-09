@@ -164,11 +164,12 @@ Class FinditDynamoDbUser {
     $time = (string) time();
     $registeredFrom = 'Findit';
     $other_data = $this->otherUserData($data);
+    $name = !empty($data['name']) ? $data['name'] : $data['email'];
     $result = $this->sdk->putItem(array(
       'TableName' => TABLE,
       'Item' => array(
         'id' => array('S' => base64_encode($data['email'])),
-        'name' => array('S' => $data['name']),
+        'name' => array('S' => $name),
         'password' => array('S' => $hashpassword),
         'passwordsalt' => array('S' => $salt),
         'email' => array('S' => $data['email']),
